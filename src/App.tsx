@@ -166,6 +166,10 @@ export default function App() {
   const [calcHistory, setCalcHistory] = useState<string[]>([]);
   const [calcResult, setCalcResult] = useState<number | null>(null);
 
+  const isAdmin = useMemo(() => {
+    return user?.email === "lalbakth@gmail.com";
+  }, [user]);
+
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -508,10 +512,16 @@ export default function App() {
                 exit={{ opacity: 0, x: -20 }}
                 className="space-y-4"
               >
-                <AddMemberForm onAdd={addMember} />
+                {isAdmin && <AddMemberForm onAdd={addMember} />}
                 <div className="grid gap-4">
                   {calculations.memberDetails.map((m) => (
-                    <MemberCard key={m.id} member={m} onDelete={deleteMember} onUpdateDays={updateMemberDays} />
+                    <MemberCard 
+                      key={m.id} 
+                      member={m} 
+                      onDelete={deleteMember} 
+                      onUpdateDays={updateMemberDays} 
+                      isAdmin={isAdmin}
+                    />
                   ))}
                 </div>
               </motion.div>
@@ -556,12 +566,14 @@ export default function App() {
                             </td>
                             <td className="px-8 py-5 text-right font-display font-black text-indigo-400 text-lg">₹{p.amount}</td>
                             <td className="px-8 py-5 text-right">
-                              <button 
-                                onClick={() => deletePurchase(p.id)} 
-                                className="w-9 h-9 flex items-center justify-center text-slate-600 hover:text-red-500 hover:bg-red-950/30 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {isAdmin && (
+                                <button 
+                                  onClick={() => deletePurchase(p.id)} 
+                                  className="w-9 h-9 flex items-center justify-center text-slate-600 hover:text-red-500 hover:bg-red-950/30 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -643,13 +655,15 @@ export default function App() {
               >
                 <div className="flex justify-between items-center px-2">
                   <h2 className="text-xl font-display font-black text-white tracking-tight">Saved Summaries</h2>
-                  <button 
-                    onClick={saveSummary}
-                    className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
-                  >
-                    <Save className="w-4 h-4" />
-                    Save Current
-                  </button>
+                  {isAdmin && (
+                    <button 
+                      onClick={saveSummary}
+                      className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save Current
+                    </button>
+                  )}
                 </div>
                 <div className="grid gap-6">
                   {summaries.map((s) => (
@@ -687,11 +701,14 @@ export default function App() {
                         </button>
                         <button 
                           onClick={async () => {
-                            if (confirm('Delete this summary?')) {
+                            if (isAdmin && confirm('Delete this summary?')) {
                               await deleteDoc(doc(db, 'summaries', s.id));
                             }
                           }}
-                          className="w-12 h-12 flex items-center justify-center bg-red-950/30 text-red-500 rounded-2xl hover:bg-red-900/50 transition-all border border-red-900/20"
+                          className={cn(
+                            "w-12 h-12 flex items-center justify-center bg-red-950/30 text-red-500 rounded-2xl hover:bg-red-900/50 transition-all border border-red-900/20",
+                            !isAdmin && "opacity-0 pointer-events-none"
+                          )}
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>
@@ -855,10 +872,12 @@ const AddMemberForm: React.FC<{ onAdd: (name: string, rent: boolean, mess: boole
 const MemberCard: React.FC<{ 
   member: any, 
   onDelete: (id: string) => void | Promise<void>,
-  onUpdateDays: (id: string, days: number) => void | Promise<void>
-}> = ({ member, onDelete, onUpdateDays }) => {
+  onUpdateDays: (id: string, days: number) => void | Promise<void>,
+  isAdmin: boolean
+}> = ({ member, onDelete, onUpdateDays, isAdmin }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedDays, setEditedDays] = useState(member.totalDays);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleSave = async () => {
     await onUpdateDays(member.id, editedDays);
@@ -874,7 +893,7 @@ const MemberCard: React.FC<{
         <div>
           <h4 className="font-display font-bold text-xl text-white mb-1.5">{member.name}</h4>
           <div className="flex flex-wrap items-center gap-2">
-            {isEditing ? (
+            {isEditing && isAdmin ? (
               <div className="flex items-center gap-2 bg-slate-800 p-1 rounded-lg border border-slate-700">
                 <input 
                   type="number" 
@@ -892,11 +911,14 @@ const MemberCard: React.FC<{
               </div>
             ) : (
               <span 
-                onClick={() => setIsEditing(true)}
-                className="text-[10px] font-bold bg-slate-800 text-slate-400 px-2.5 py-1 rounded-lg uppercase tracking-widest cursor-pointer hover:bg-slate-700 transition-colors flex items-center gap-1.5"
+                onClick={() => isAdmin && setIsEditing(true)}
+                className={cn(
+                  "text-[10px] font-bold bg-slate-800 text-slate-400 px-2.5 py-1 rounded-lg uppercase tracking-widest flex items-center gap-1.5 transition-colors",
+                  isAdmin ? "cursor-pointer hover:bg-slate-700" : "cursor-default"
+                )}
               >
                 {member.totalDays} Days
-                <Edit2 className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                {isAdmin && <Edit2 className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />}
               </span>
             )}
             {member.roomRentEnabled && (
@@ -924,12 +946,34 @@ const MemberCard: React.FC<{
             <span className="text-sm font-bold ml-0.5 opacity-60">.{member.balance.toFixed(2).split('.')[1]}</span>
           </p>
         </div>
-        <button 
-          onClick={() => onDelete(member.id)}
-          className="w-12 h-12 flex items-center justify-center text-slate-600 hover:text-red-500 hover:bg-red-950/30 rounded-2xl transition-all border border-transparent hover:border-red-900/30"
-        >
-          <Trash2 className="w-5 h-5" />
-        </button>
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            {confirmDelete ? (
+              <div className="flex items-center gap-2 bg-red-950/30 p-2 rounded-2xl border border-red-900/20 animate-in fade-in slide-in-from-right-2">
+                <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest px-2">Sure?</span>
+                <button 
+                  onClick={() => onDelete(member.id)}
+                  className="p-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={() => setConfirmDelete(false)}
+                  className="p-2 bg-slate-800 text-slate-400 rounded-xl hover:bg-slate-700 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => setConfirmDelete(true)}
+                className="w-12 h-12 flex items-center justify-center text-slate-600 hover:text-red-500 hover:bg-red-950/30 rounded-2xl transition-all border border-transparent hover:border-red-900/30"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
